@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Timers;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Shell;
 
 namespace YouVisio.Wpf.TimeTracker
 {
@@ -61,6 +61,8 @@ namespace YouVisio.Wpf.TimeTracker
                 {
                     var time = _prevSegment + (DateTime.Now - _linkedList.Last.Value.Start);
 
+                    TaskbarItemInfo.ProgressValue = Math.Max(Math.Min(time.TotalHours/8.0, 1.0), 0.15);
+
                     LblTime.Content = time.Hours + "h " + time.Minutes + "m " + time.Seconds + "s";
                 }));
         }
@@ -76,6 +78,8 @@ namespace YouVisio.Wpf.TimeTracker
             BtnPlay.Background = Brushes.Green;
             BtnPlay.Content = "Stop";
             _linkedList.AddLast(new TimeSegment {Start = DateTime.Now, Count = _linkedList.Count + 1});
+
+            TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Normal;
         }
 
         private void Stop()
@@ -94,6 +98,8 @@ namespace YouVisio.Wpf.TimeTracker
                 TxtLog.Text += segment.Start.ToString("HH:mm:ss") + " - " + segment.End.ToString("HH:mm:ss") + " (" + segment.Span.Hours + "h " + segment.Span.Minutes + "m " + segment.Span.Seconds + "s)\n";
                 node = node.Next;
             }
+
+            TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
         }
     }
 
