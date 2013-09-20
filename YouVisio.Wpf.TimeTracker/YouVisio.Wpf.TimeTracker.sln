@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YouVisio.Wpf.TimeTracker", "YouVisio.Wpf.TimeTracker\YouVisio.Wpf.TimeTracker.csproj", "{C58A802F-3868-42F6-81E7-DB64594C3853}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YouVisio.Wpf.TimeTracker.Tests", "YouVisio.Wpf.TimeTracker.Tests\YouVisio.Wpf.TimeTracker.Tests.csproj", "{73057BC5-8AE1-4399-9291-E023D6F144D7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,6 +15,10 @@ Global
 		{C58A802F-3868-42F6-81E7-DB64594C3853}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C58A802F-3868-42F6-81E7-DB64594C3853}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C58A802F-3868-42F6-81E7-DB64594C3853}.Release|Any CPU.Build.0 = Release|Any CPU
+		{73057BC5-8AE1-4399-9291-E023D6F144D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{73057BC5-8AE1-4399-9291-E023D6F144D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{73057BC5-8AE1-4399-9291-E023D6F144D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{73057BC5-8AE1-4399-9291-E023D6F144D7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Timers;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Shell;
+using MongoDB.Bson;
+using MongoDB.Driver;
+using MongoDB.Driver.Builders;
 
 namespace YouVisio.Wpf.TimeTracker
 {
@@ -26,12 +30,58 @@ namespace YouVisio.Wpf.TimeTracker
             _timer.Elapsed += Timer_Elapsed;
 
             Closing += MainWindow_Closing;
-            
         }
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
             if (_timer.Enabled) Stop();
+
+            if (CanConnectToMongo()) WriteToMongo();
+            else WriteToFile();
+            
+        }
+
+        private void WriteToMongo()
+        {
+            var d = DateTime.Now;
+            var node = _linkedList.First;
+            var allTime = new TimeSpan(0);
+            var doc = new BsonDocument();
+            var day = d.Year.ToPadString(4) + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2);
+            var time = d.Hour.ToPadString(2) + ":" + d.Minute.ToPadString(2);
+            doc["day"] = day;
+            doc["time"] = time;
+            doc["weekday"] = d.DayOfWeek.ToString();
+            doc["ts"] = new BsonDateTime(d);
+            var timeParts = new BsonArray();
+            while (node != null)
+            {
+                var segment = node.Value;
+
+                timeParts.Add(new BsonDocument
+                    {
+                        {"start", segment.Start.ToString("HH:mm:ss")},
+                        {"end", segment.End.ToString("HH:mm:ss")},
+                        {"diration", segment.Span.Hours + "h " + segment.Span.Minutes + "m " + segment.Span.Seconds+"s"},
+                        {"minutes", segment.Span.TotalMinutes.Round(2)},
+                        {"hours", segment.Span.TotalHours.Round(2)}
+                    });
+
+                allTime = allTime.Add(segment.Span);
+                node = node.Next;
+            }
+            if (allTime.TotalSeconds < 1) return;
+            doc["segments"] = timeParts;
+            doc["duration"] = allTime.Hours + "h " + allTime.Minutes + "m " + allTime.Seconds+"s";
+            doc["minutes"] = allTime.TotalMinutes.Round(2);
+            doc["hours"] = allTime.TotalHours.Round(2);
+
+            var col = GetMongoCollection("time_tracker");
+            col.Insert(doc);
+        }
+
+        private void WriteToFile()
+        {
             var d = DateTime.Now;
             var node = _linkedList.First;
             var allTime = new TimeSpan(0);
@@ -55,16 +105,41 @@ namespace YouVisio.Wpf.TimeTracker
                 d.Hour.ToPadString(2) + "h " + d.Minute.ToPadString(2) + "m (" + allTime.Hours + "h " + (allTime.Minutes + ((allTime.Seconds > 30) ? 1 : 0)) + "m" + ").txt", sb.ToString());
         }
 
+        private bool CanConnectToMongo()
+        {
+            var col = GetMongoCollection("test");
+            try
+            {
+                col.Update(Query.EQ("_id", "test"),
+                           Update.Replace(new BsonDocument {{"_id", "test"}, {"time", new BsonDateTime(DateTime.Now)}}),
+                           UpdateFlags.Upsert);
+                return true;
+            }
+            catch (MongoConnectionException)
+            {
+                return false;
+            }
+        }
+
+        private MongoCollection<BsonDocument> GetMongoCollection(string name)
+        {
+            const string cs = "mongodb://localhost/?safe=true";
+            var mc = new MongoClient(cs);
+            var server = mc.GetServer();
+            var db = server.GetDatabase("youvisio");
+            return db.GetCollection(name);
+        }  
+
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            Dispatcher.Invoke(new Action(() =>
+            Dispatcher.Invoke(() =>
                 {
                     var time = _prevSegment + (DateTime.Now - _linkedList.Last.Value.Start);
 
                     TaskbarItemInfo.ProgressValue = Math.Max(Math.Min(time.TotalHours/8.0, 1.0), 0.15);
 
                     LblTime.Content = time.Hours + "h " + time.Minutes + "m " + time.Seconds + "s";
-                }));
+                });
         }
         private void BtnPlay_OnClick(object sender, RoutedEventArgs e)
         {
