@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Timers;
 using System.Windows;
@@ -30,6 +31,46 @@ namespace YouVisio.Wpf.TimeTracker
             _timer.Elapsed += Timer_Elapsed;
 
             Closing += MainWindow_Closing;
+
+
+            LoadPreviousLinkedList();
+        }
+
+        private void LoadPreviousLinkedList()
+        {
+
+            var col = GetMongoCollection("time_tracker");
+            var d = DateTime.Now;
+            var day = d.Year.ToPadString(4) + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2);
+
+            var prev = col.FindOne(Query.EQ("day", day));
+            if (prev == null) return;
+
+            var i = 0;
+            foreach(BsonDocument seg in prev["segments"].AsBsonArray)
+            {
+                var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
+                _prevSegment += ts.Span;
+                ts.Count = ++i;
+                _linkedList.AddLast(ts);
+            }
+
+            SetPreviousTimesFromLinkedList();
+
+            var time = _prevSegment;
+            LblTime.Content = time.Hours + "h " + time.Minutes + "m " + time.Seconds + "s";
+        }
+
+        private TimeSegment GetTimeSegment(string start, string end)
+        {
+            var d = DateTime.Now;
+            var sa = start.Split(':').Select(Int32.Parse).ToArray();
+            var ea = end.Split(':').Select(Int32.Parse).ToArray();
+            return new TimeSegment
+                       {
+                           Start = new DateTime(d.Year, d.Month, d.Day).AddHours(sa[0]).AddMinutes(sa[1]).AddSeconds(sa[2]),
+                           End = new DateTime(d.Year, d.Month, d.Day).AddHours(ea[0]).AddMinutes(ea[1]).AddSeconds(ea[2])
+                       };
         }
 
         private void MainWindow_Closing(object sender, CancelEventArgs e)
@@ -77,7 +118,7 @@ namespace YouVisio.Wpf.TimeTracker
             doc["hours"] = allTime.TotalHours.Round(2);
 
             var col = GetMongoCollection("time_tracker");
-            col.Insert(doc);
+            col.Update(Query.EQ("day", day), Update.Replace(doc), UpdateFlags.Upsert);
         }
 
         private void WriteToFile()
@@ -163,6 +204,12 @@ namespace YouVisio.Wpf.TimeTracker
             BtnPlay.Background = Brushes.DarkRed;
             BtnPlay.Content = "Play";
             _linkedList.Last.Value.End = DateTime.Now;
+            SetPreviousTimesFromLinkedList();
+
+            TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
+        }
+        private void SetPreviousTimesFromLinkedList()
+        {
             _prevSegment = new TimeSpan(0);
             TxtLog.Text = "";
             var node = _linkedList.First;
@@ -173,8 +220,6 @@ namespace YouVisio.Wpf.TimeTracker
                 TxtLog.Text += segment.Start.ToString("HH:mm:ss") + " - " + segment.End.ToString("HH:mm:ss") + " (" + segment.Span.Hours + "h " + segment.Span.Minutes + "m " + segment.Span.Seconds + "s)\n";
                 node = node.Next;
             }
-
-            TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
         }
     }
 
