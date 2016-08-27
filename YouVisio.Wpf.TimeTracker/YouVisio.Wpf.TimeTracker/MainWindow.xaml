@@ -1,7 +1,7 @@
 ﻿<Window x:Class="YouVisio.Wpf.TimeTracker.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="YouVisio - Time Tracker" Height="400" Width="400"
+        Title="YouVisio - Time Tracker" Height="500" Width="620"
         Icon="icon.ico">
     
     <Window.Resources>
@@ -32,7 +32,6 @@
     </Window.TaskbarItemInfo>
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"></ColumnDefinition>
             <ColumnDefinition Width="200"></ColumnDefinition>
             <ColumnDefinition Width="*"></ColumnDefinition>
         </Grid.ColumnDefinitions>
@@ -42,10 +41,19 @@
             <RowDefinition Height="*"></RowDefinition>
         </Grid.RowDefinitions>
         
-        <Label Name="LblTime" Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="3" FontSize="15" Foreground="DarkGray" HorizontalContentAlignment="Center">0h 0m 0s</Label>
+        <Label Name="LblTime" Grid.Column="0" Grid.Row="0" FontSize="15" Foreground="DarkGray" HorizontalContentAlignment="Center">0h 0m 0s</Label>
 
-        <Button Name="BtnPlay" Grid.Column="1" Grid.Row="1" Content="Play" FontSize="20" Background="DarkRed" Click="BtnPlay_OnClick" />
+        <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0">
+            <Label>ID</Label>
+            <TextBox Name="TaskId" Width="120"></TextBox>
+            <Label Margin="20 0 0 0">Comment:</Label>
+            <Button Name="ClearButton" Margin="105 0 0 0" Background="CadetBlue" Width="60" Click="ClearButton_OnClick">Clear</Button>
+        </StackPanel>
 
-        <TextBox Name="TxtLog" Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="3" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"></TextBox>
+        <TextBox Name="TaskComment" Grid.Column="1" Grid.Row="1" AcceptsTab="True" AcceptsReturn="True"></TextBox>
+        
+        <Button Name="BtnPlay" Grid.Column="0" Grid.Row="1" Content="Play" FontSize="20" Background="DarkRed" Click="BtnPlay_OnClick" />
+
+        <TextBox Name="TxtLog" FontFamily="Segoe UI" FontSize="13" Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsReadOnly="True"></TextBox>
     </Grid>
 </Window>

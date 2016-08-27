@@ -32,8 +32,9 @@ namespace YouVisio.Wpf.TimeTracker
 
             Closing += MainWindow_Closing;
 
-
             LoadPreviousLinkedList();
+
+            EnsureTitle();
         }
 
         private void LoadPreviousLinkedList()
@@ -46,10 +47,14 @@ namespace YouVisio.Wpf.TimeTracker
             var prev = col.FindOne(Query.EQ("day", day));
             if (prev == null) return;
 
+            _linkedList.Clear();
+
             var i = 0;
             foreach(BsonDocument seg in prev["segments"].AsBsonArray)
             {
                 var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
+                if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
+                if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
                 _prevSegment += ts.Span;
                 ts.Count = ++i;
                 _linkedList.AddLast(ts);
@@ -76,10 +81,13 @@ namespace YouVisio.Wpf.TimeTracker
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
             if (_timer.Enabled) Stop();
+        }
 
+        private void EnsureSave()
+        {
             if (CanConnectToMongo()) WriteToMongo();
-            else WriteToFile();
-            
+            else MessageBox.Show("Cannot connect to Mongo");
+
         }
 
         private void WriteToMongo()
@@ -105,7 +113,9 @@ namespace YouVisio.Wpf.TimeTracker
                         {"end", segment.End.ToString("HH:mm:ss")},
                         {"diration", segment.Span.Hours + "h " + segment.Span.Minutes + "m " + segment.Span.Seconds+"s"},
                         {"minutes", segment.Span.TotalMinutes.Round(2)},
-                        {"hours", segment.Span.TotalHours.Round(2)}
+                        {"hours", segment.Span.TotalHours.Round(2)},
+                        {"task_id", segment.Id },
+                        {"task_comment", segment.Comment }
                     });
 
                 allTime = allTime.Add(segment.Span);
@@ -119,31 +129,6 @@ namespace YouVisio.Wpf.TimeTracker
 
             var col = GetMongoCollection("time_tracker");
             col.Update(Query.EQ("day", day), Update.Replace(doc), UpdateFlags.Upsert);
-        }
-
-        private void WriteToFile()
-        {
-            var d = DateTime.Now;
-            var node = _linkedList.First;
-            var allTime = new TimeSpan(0);
-            var sb = new StringBuilder();
-            while (node != null)
-            {
-                var segment = node.Value;
-                if (sb.Length == 0)
-                {
-                    sb.AppendLine(segment.Start.Year + "-" + segment.Start.Month.ToPadString(2) + "-" + segment.Start.Day.ToPadString(2));
-                }
-                sb.AppendLine(segment.Start.ToString("HH:mm:ss") + " - " + segment.End.ToString("HH:mm:ss") + " (" + segment.Span.Hours + "h " + segment.Span.Minutes + "m " + segment.Span.Seconds + "s)");
-                allTime = allTime.Add(segment.Span);
-                node = node.Next;
-            }
-            if (allTime.TotalSeconds < 1) return;
-            sb.AppendLine("Time: " + allTime.Hours + "h " + allTime.Minutes + "m " + allTime.Seconds + "s");
-            var path = (Directory.Exists(@"C:\Source\YouVisio\Logs\")) ? @"C:\Source\YouVisio\Logs\" : Path.GetFullPath(@".\");
-            File.WriteAllText(path + @"log." +
-                d.Year + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2) + " " +
-                d.Hour.ToPadString(2) + "h " + d.Minute.ToPadString(2) + "m (" + allTime.Hours + "h " + (allTime.Minutes + ((allTime.Seconds > 30) ? 1 : 0)) + "m" + ").txt", sb.ToString());
         }
 
         private bool CanConnectToMongo()
@@ -190,11 +175,18 @@ namespace YouVisio.Wpf.TimeTracker
 
         private void Play()
         {
+            LoadPreviousLinkedList();
             _timer.Start();
             BtnPlay.Background = Brushes.Green;
             BtnPlay.Content = "Stop";
-            _linkedList.AddLast(new TimeSegment {Start = DateTime.Now, Count = _linkedList.Count + 1});
-
+            _linkedList.AddLast(new TimeSegment
+            {
+                Start = DateTime.Now,
+                Count = _linkedList.Count + 1,
+                Id = TaskId.Text,
+                Comment = TaskComment.Text
+            });
+            EnsureTitle();
             TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Normal;
         }
 
@@ -206,20 +198,36 @@ namespace YouVisio.Wpf.TimeTracker
             _linkedList.Last.Value.End = DateTime.Now;
             SetPreviousTimesFromLinkedList();
 
+            EnsureSave();
+            EnsureTitle();
             TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
         }
+
+        private void EnsureTitle()
+        {
+            var d = DateTime.Now;
+            var day = d.Year.ToPadString(4) + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2) + " "+d.DayOfWeek;
+            Title = "YouVisio - Time Tricker (" + day + ")";
+        }
+
         private void SetPreviousTimesFromLinkedList()
         {
             _prevSegment = new TimeSpan(0);
             TxtLog.Text = "";
-            var node = _linkedList.First;
+            var node = _linkedList.Last;
+            var i = _linkedList.Count;
             while (node != null)
             {
                 var segment = node.Value;
                 _prevSegment = _prevSegment.Add(segment.Span);
-                TxtLog.Text += segment.Start.ToString("HH:mm:ss") + " - " + segment.End.ToString("HH:mm:ss") + " (" + segment.Span.Hours + "h " + segment.Span.Minutes + "m " + segment.Span.Seconds + "s)\n";
-                node = node.Next;
+                TxtLog.Text += (i--).ToString().PadLeft(3,' ')+".) "+segment+"\n";
+                node = node.Previous;
             }
+        }
+
+        private void ClearButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            TaskId.Text = TaskComment.Text = "";
         }
     }
 
@@ -228,7 +236,29 @@ namespace YouVisio.Wpf.TimeTracker
         public int Count { get; set; }
         public DateTime Start { get; set; }
         public DateTime End { get; set; }
-        public TimeSpan Span { get { return End - Start; } }
+        public TimeSpan Span => End - Start;
+        public string Id { get; set; }
+        public string Comment { get; set; }
 
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb
+                .Append(Start.ToString("HH:mm:ss"))
+                .Append(" - ")
+                .Append(End.ToString("HH:mm:ss"))
+                .Append(" (")
+                .Append(Span.Hours).Append("h ")
+                .Append(Span.Minutes).Append("m ")
+                .Append(Span.Seconds).Append("s")
+                .Append(")");
+            if (!string.IsNullOrWhiteSpace(Id)) sb.Append("       #" + Id);
+            if (!string.IsNullOrWhiteSpace(Comment))
+            {
+                sb.Append("       ")
+                  .Append(((Comment.Length > 40)?Comment.Substring(0,40)+"...":Comment).Replace("\n"," ").Replace("\r"," ").Replace("\t"," "));
+            }
+            return sb.ToString();
+        }
     }
 }
