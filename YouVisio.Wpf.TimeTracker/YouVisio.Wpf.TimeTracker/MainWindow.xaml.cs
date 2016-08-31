@@ -85,15 +85,37 @@ namespace YouVisio.Wpf.TimeTracker
 
         private void EnsureSave()
         {
-            if (CanConnectToMongo()) WriteToMongo();
-            else MessageBox.Show("Cannot connect to Mongo");
+            var end = _linkedList.Last.Value;
+            if (end.Start.Day < end.End.Day)
+            {
+                var startOfToday = new DateTime(end.End.Year, end.End.Month, end.End.Day, 0, 0, 0); 
 
+                var endOfYesterday = new DateTime(end.Start.Year, end.Start.Month, end.Start.Day, 23, 59, 59);
+                end.End = endOfYesterday;
+                RecordData(endOfYesterday, _linkedList);
+
+                _linkedList.Clear();
+                _linkedList.AddFirst(new TimeSegment
+                        {
+                            Start = startOfToday,
+                            End = DateTime.Now,
+                            Count = 1,
+                            Id = end.Id,
+                            Comment = (end.Comment + " (after splitting the time segment because it was crossing midnight)").Trim()
+                        });
+                RecordData(DateTime.Now, _linkedList);
+                
+            }
+            else
+            {
+                RecordData(DateTime.Now, _linkedList);
+            }
         }
 
-        private void WriteToMongo()
+        private void RecordData(DateTime dateSaved, LinkedList<TimeSegment> segments)
         {
-            var d = DateTime.Now;
-            var node = _linkedList.First;
+            var d = dateSaved;
+            var node = segments.First;
             var allTime = new TimeSpan(0);
             var doc = new BsonDocument();
             var day = d.Year.ToPadString(4) + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2);
@@ -127,8 +149,18 @@ namespace YouVisio.Wpf.TimeTracker
             doc["minutes"] = allTime.TotalMinutes.Round(2);
             doc["hours"] = allTime.TotalHours.Round(2);
 
-            var col = GetMongoCollection("time_tracker");
-            col.Update(Query.EQ("day", day), Update.Replace(doc), UpdateFlags.Upsert);
+            if (CanConnectToMongo())
+            {
+                var col = GetMongoCollection("time_tracker");
+                col.Update(Query.EQ("day", day), Update.Replace(doc), UpdateFlags.Upsert);
+            }
+            else
+            {
+                var path = Path.GetFullPath(Path.GetTempPath()+ "/__TimeTracker_UnsavedData_" + day + "_" + DateTime.UtcNow.Ticks + ".txt");
+                File.WriteAllText(path, doc+"");
+
+                MessageBox.Show("Cannot connect to Mongo. Data saved to "+path);
+            }
         }
 
         private bool CanConnectToMongo()
@@ -183,8 +215,8 @@ namespace YouVisio.Wpf.TimeTracker
             {
                 Start = DateTime.Now,
                 Count = _linkedList.Count + 1,
-                Id = TaskId.Text,
-                Comment = TaskComment.Text
+                Id = TaskId.Text.Trim(),
+                Comment = TaskComment.Text.Trim()
             });
             EnsureTitle();
             TaskbarItemInfo.ProgressState = TaskbarItemProgressState.Normal;
@@ -207,7 +239,7 @@ namespace YouVisio.Wpf.TimeTracker
         {
             var d = DateTime.Now;
             var day = d.Year.ToPadString(4) + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2) + " "+d.DayOfWeek;
-            Title = "YouVisio - Time Tricker (" + day + ")";
+            Title = "Time Tricker @ YouVisio (" + day + ")";
         }
 
         private void SetPreviousTimesFromLinkedList()
