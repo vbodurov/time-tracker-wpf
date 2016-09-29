@@ -1,7 +1,7 @@
 ﻿<Window x:Class="YouVisio.Wpf.TimeTracker.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="YouVisio - Time Tracker" Height="500" Width="620"
+        Title="YouVisio - Time Tracker" Height="500" Width="780"
         Icon="icon.ico">
     
     <Window.Resources>

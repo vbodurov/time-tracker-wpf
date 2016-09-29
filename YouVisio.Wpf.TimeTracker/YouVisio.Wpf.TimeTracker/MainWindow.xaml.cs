@@ -41,16 +41,14 @@ namespace YouVisio.Wpf.TimeTracker
         {
 
             var col = GetMongoCollection("time_tracker");
-            var d = DateTime.Now;
-            var day = d.Year.ToPadString(4) + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2);
 
-            var prev = col.FindOne(Query.EQ("day", day));
-            if (prev == null) return;
+            var recordsFromToday = col.FindOne(Query.EQ("day", DateTime.Now.ToYearMonthDay()));
+            if (recordsFromToday == null) return;
 
             _linkedList.Clear();
 
             var i = 0;
-            foreach(BsonDocument seg in prev["segments"].AsBsonArray)
+            foreach(BsonDocument seg in recordsFromToday["segments"].AsBsonArray)
             {
                 var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
                 if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
@@ -255,6 +253,27 @@ namespace YouVisio.Wpf.TimeTracker
                 TxtLog.Text += (i--).ToString().PadLeft(3,' ')+".) "+segment+"\n";
                 node = node.Previous;
             }
+
+            var col = GetMongoCollection("time_tracker");
+            var recordsFromYesterday = col.FindOne(Query.EQ("day", DateTime.Now.AddDays(-1).ToYearMonthDay()));
+            var arr = recordsFromYesterday?["segments"].AsBsonArray;
+            if(arr == null) return;
+            const int showRecords = 5;
+            var j = arr.Count;
+            foreach (BsonDocument seg in 
+                arr
+                .Skip(Math.Max(arr.Count-showRecords,0))
+                .Take(showRecords)
+                .Reverse()
+                .OfType<BsonDocument>())
+            {
+                var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
+                if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
+                if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
+                _prevSegment += ts.Span;
+                ts.Count = ++i;
+                TxtLog.Text += "before today  ("+DateTime.Now.AddDays(-1).ToYearMonthDay()+"):" + (j--).ToString().PadLeft(3,' ')+".) "+ts + "\n";
+            }
         }
 
         private void ClearButton_OnClick(object sender, RoutedEventArgs e)
@@ -288,7 +307,7 @@ namespace YouVisio.Wpf.TimeTracker
             if (!string.IsNullOrWhiteSpace(Comment))
             {
                 sb.Append("       ")
-                  .Append(((Comment.Length > 40)?Comment.Substring(0,40)+"...":Comment).Replace("\n"," ").Replace("\r"," ").Replace("\t"," "));
+                  .Append(((Comment.Length > 40)?Comment.Substring(0,50)+"...":Comment).Replace("\n"," ").Replace("\r"," ").Replace("\t"," "));
             }
             return sb.ToString();
         }

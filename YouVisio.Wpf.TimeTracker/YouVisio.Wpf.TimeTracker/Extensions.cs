@@ -13,5 +13,9 @@ namespace YouVisio.Wpf.TimeTracker
         {
             return Math.Round(n, digits);
         }
+        public static string ToYearMonthDay(this DateTime d)
+        {
+            return d.Year.ToPadString(4) + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2);;
+        }
     }
 }
