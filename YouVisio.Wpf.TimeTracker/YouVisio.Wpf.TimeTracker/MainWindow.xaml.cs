@@ -272,7 +272,7 @@ namespace YouVisio.Wpf.TimeTracker
                 if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
                 _prevSegment += ts.Span;
                 ts.Count = ++i;
-                TxtLog.Text += "before today  ("+DateTime.Now.AddDays(-1).ToYearMonthDay()+"):" + (j--).ToString().PadLeft(3,' ')+".) "+ts + "\n";
+                TxtLog.Text += "yesterday  ("+DateTime.Now.AddDays(-1).ToYearMonthDay()+"):" + (j--).ToString().PadLeft(3,' ')+".) "+ts + "\n";
             }
         }
 
