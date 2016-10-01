@@ -42,6 +42,8 @@ namespace YouVisio.Wpf.TimeTracker
 
             var col = GetMongoCollection("time_tracker");
 
+            _prevSegment = new TimeSpan(0);
+
             var recordsFromToday = col.FindOne(Query.EQ("day", DateTime.Now.ToYearMonthDay()));
             if (recordsFromToday != null)
             {
@@ -278,7 +280,6 @@ namespace YouVisio.Wpf.TimeTracker
                 var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
                 if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
                 if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
-                _prevSegment += ts.Span;
                 ts.Count = ++i;
                 TxtLog.Text += "yesterday  ("+DateTime.Now.AddDays(-1).ToYearMonthDay()+"):" + (j--).ToString().PadLeft(3,' ')+".) "+ts + "\n";
             }
