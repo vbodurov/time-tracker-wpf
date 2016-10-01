@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace YouVisio.Wpf.TimeTracker
 {
@@ -12,5 +9,19 @@ namespace YouVisio.Wpf.TimeTracker
     /// </summary>
     public partial class App : Application
     {
+        public const string Source = "Application";
+        public const string Log = "Application";
+
+        public App()
+        {
+            Dispatcher.UnhandledException += OnDispatcherUnhandledException;
+        }
+
+        private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            if (!EventLog.SourceExists(Source))
+                EventLog.CreateEventSource(Source, Log);
+            EventLog.WriteEntry(Source, "Time Tracker Error:"+e.Exception.ToString(), EventLogEntryType.Error);
+        }
     }
 }

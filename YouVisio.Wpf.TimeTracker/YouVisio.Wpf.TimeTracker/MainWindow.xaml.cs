@@ -43,22 +43,23 @@ namespace YouVisio.Wpf.TimeTracker
             var col = GetMongoCollection("time_tracker");
 
             var recordsFromToday = col.FindOne(Query.EQ("day", DateTime.Now.ToYearMonthDay()));
-            if (recordsFromToday == null) return;
-
-            _linkedList.Clear();
-
-            var i = 0;
-            foreach(BsonDocument seg in recordsFromToday["segments"].AsBsonArray)
+            if (recordsFromToday != null)
             {
-                var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
-                if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
-                if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
-                _prevSegment += ts.Span;
-                ts.Count = ++i;
-                _linkedList.AddLast(ts);
+                _linkedList.Clear();
+
+                var i = 0;
+                foreach(BsonDocument seg in recordsFromToday["segments"].AsBsonArray)
+                {
+                    var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
+                    if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
+                    if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
+                    _prevSegment += ts.Span;
+                    ts.Count = ++i;
+                    _linkedList.AddLast(ts);
+                }
             }
 
-            SetPreviousTimesFromLinkedList();
+            SetTextViewFromLinkedList();
 
             var time = _prevSegment;
             LblTime.Content = time.Hours + "h " + time.Minutes + "m " + time.Seconds + "s";
@@ -131,7 +132,7 @@ namespace YouVisio.Wpf.TimeTracker
                     {
                         {"start", segment.Start.ToString("HH:mm:ss")},
                         {"end", segment.End.ToString("HH:mm:ss")},
-                        {"diration", segment.Span.Hours + "h " + segment.Span.Minutes + "m " + segment.Span.Seconds+"s"},
+                        {"duration", segment.Span.Hours + "h " + segment.Span.Minutes + "m " + segment.Span.Seconds+"s"},
                         {"minutes", segment.Span.TotalMinutes.Round(2)},
                         {"hours", segment.Span.TotalHours.Round(2)},
                         {"task_id", segment.Id },
@@ -222,15 +223,22 @@ namespace YouVisio.Wpf.TimeTracker
 
         private void Stop()
         {
-            _timer.Stop();
-            BtnPlay.Background = Brushes.DarkRed;
-            BtnPlay.Content = "Play";
-            _linkedList.Last.Value.End = DateTime.Now;
-            SetPreviousTimesFromLinkedList();
+            try
+            {
+                _timer.Stop();
+                BtnPlay.Background = Brushes.DarkRed;
+                BtnPlay.Content = "Play";
+                _linkedList.Last.Value.End = DateTime.Now;
+                SetTextViewFromLinkedList();
 
-            EnsureSave();
-            EnsureTitle();
-            TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
+                EnsureSave();
+                EnsureTitle();
+                TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
+            }
         }
 
         private void EnsureTitle()
@@ -240,7 +248,7 @@ namespace YouVisio.Wpf.TimeTracker
             Title = "Time Tricker @ YouVisio (" + day + ")";
         }
 
-        private void SetPreviousTimesFromLinkedList()
+        private void SetTextViewFromLinkedList()
         {
             _prevSegment = new TimeSpan(0);
             TxtLog.Text = "";
@@ -307,7 +315,7 @@ namespace YouVisio.Wpf.TimeTracker
             if (!string.IsNullOrWhiteSpace(Comment))
             {
                 sb.Append("       ")
-                  .Append(((Comment.Length > 40)?Comment.Substring(0,50)+"...":Comment).Replace("\n"," ").Replace("\r"," ").Replace("\t"," "));
+                  .Append(((Comment.Length > 50)?Comment.Substring(0,50)+"...":Comment).Replace("\n"," ").Replace("\r"," ").Replace("\t"," "));
             }
             return sb.ToString();
         }
