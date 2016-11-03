@@ -49,5 +49,11 @@ namespace YouVisio.Wpf.TimeTracker.Tests
             };
             Console.WriteLine(json);
         }
+
+        [Test]
+        public void Misc1()
+        {
+            Console.WriteLine(string.CompareOrdinal("2016-10-30","2016-10-31"));
+        }
     }
 }

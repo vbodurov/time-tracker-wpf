@@ -84,33 +84,45 @@ namespace YouVisio.Wpf.TimeTracker
             if (_timer.Enabled) Stop();
         }
 
-        private void EnsureSave()
+        private bool EnsureSaveAndIfNeededLastDayClearList()
         {
             var end = _linkedList.Last.Value;
-            if (end.Start.Day < end.End.Day)
+            var lastDayLastPeriodStartString = end.Start.ToYearMonthDay();
+            var nowAsString = DateTime.Now.ToYearMonthDay();
+            if (string.CompareOrdinal(lastDayLastPeriodStartString,nowAsString) < 0)
             {
-                var startOfToday = new DateTime(end.End.Year, end.End.Month, end.End.Day, 0, 0, 0); 
+                var lastDayLastPeriodEndString = end.End.ToYearMonthDay();
 
-                var endOfYesterday = new DateTime(end.Start.Year, end.Start.Month, end.Start.Day, 23, 59, 59);
-                end.End = endOfYesterday;
-                RecordData(endOfYesterday, _linkedList);
+                var lastDayLastPeriodEndTime = new DateTime(end.End.Year, end.End.Month, end.End.Day, 0, 0, 0);
 
-                _linkedList.Clear();
-                _linkedList.AddFirst(new TimeSegment
-                        {
-                            Start = startOfToday,
-                            End = DateTime.Now,
-                            Count = 1,
-                            Id = end.Id,
-                            Comment = (end.Comment + " (after splitting the time segment because it was crossing midnight)").Trim()
-                        });
-                RecordData(DateTime.Now, _linkedList);
+                if (lastDayLastPeriodStartString != lastDayLastPeriodEndString)
+                {
+                    var endOfYesterday = new DateTime(end.Start.Year, end.Start.Month, end.Start.Day, 23, 59, 59);
+                    end.End = endOfYesterday;
+                    RecordData(endOfYesterday, _linkedList);
+
+                    _linkedList.Clear();
+                    _linkedList.AddFirst(new TimeSegment
+                    {
+                        Start = lastDayLastPeriodEndTime,
+                        End = DateTime.Now,
+                        Count = 1,
+                        Id = end.Id,
+                        Comment =
+                            (end.Comment + " (after splitting the time segment because it was crossing midnight)").Trim()
+                    });
+                    RecordData(DateTime.Now, _linkedList);
+                }
+                else
+                {
+                    RecordData(lastDayLastPeriodEndTime, _linkedList);
+                    _linkedList.Clear();
+                }
                 
+                return true;
             }
-            else
-            {
-                RecordData(DateTime.Now, _linkedList);
-            }
+            RecordData(DateTime.Now, _linkedList);
+            return false;
         }
 
         private void RecordData(DateTime dateSaved, LinkedList<TimeSegment> segments)
@@ -231,9 +243,9 @@ namespace YouVisio.Wpf.TimeTracker
                 BtnPlay.Background = Brushes.DarkRed;
                 BtnPlay.Content = "Play";
                 _linkedList.Last.Value.End = DateTime.Now;
+                
+                EnsureSaveAndIfNeededLastDayClearList();
                 SetTextViewFromLinkedList();
-
-                EnsureSave();
                 EnsureTitle();
                 TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
             }
