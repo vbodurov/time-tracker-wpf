@@ -91,12 +91,12 @@ namespace YouVisio.Wpf.TimeTracker
             var end = _linkedList.Last.Value;
             var lastDayLastPeriodStartString = end.Start.ToYearMonthDay();
             var nowAsString = DateTime.Now.ToYearMonthDay();
+            // if we have passed midnight since the beginning of the last time segment
             if (string.CompareOrdinal(lastDayLastPeriodStartString,nowAsString) < 0)
             {
                 var lastDayLastPeriodEndString = end.End.ToYearMonthDay();
 
-                var lastDayLastPeriodEndTime = new DateTime(end.End.Year, end.End.Month, end.End.Day, 0, 0, 0);
-
+                // if last period started previous day but ends the other day
                 if (lastDayLastPeriodStartString != lastDayLastPeriodEndString)
                 {
                     var endOfYesterday = new DateTime(end.Start.Year, end.Start.Month, end.Start.Day, 23, 59, 59);
@@ -106,7 +106,7 @@ namespace YouVisio.Wpf.TimeTracker
                     _linkedList.Clear();
                     _linkedList.AddFirst(new TimeSegment
                     {
-                        Start = lastDayLastPeriodEndTime,
+                        Start = endOfYesterday.AddSeconds(1),
                         End = DateTime.Now,
                         Count = 1,
                         Id = end.Id,
@@ -117,7 +117,8 @@ namespace YouVisio.Wpf.TimeTracker
                 }
                 else
                 {
-                    RecordData(lastDayLastPeriodEndTime, _linkedList);
+                    // if last day period started and ended previous day
+                    RecordData(end.End, _linkedList);
                     _linkedList.Clear();
                 }
                 
@@ -230,7 +231,7 @@ namespace YouVisio.Wpf.TimeTracker
             {
                 Start = DateTime.Now,
                 Count = _linkedList.Count + 1,
-                Id = TaskId.Text.Trim(),
+                Id = TaskId.Text.Trim().Trim('#'),
                 Comment = TaskComment.Text.Trim()
             });
             EnsureTitle();
@@ -277,6 +278,7 @@ namespace YouVisio.Wpf.TimeTracker
                 var segment = node.Value;
                 _prevSegment = _prevSegment.Add(segment.Span);
                 segment.Mark = "today";
+                segment.Count = i--;
                 segments.Add(segment);
                 node = node.Previous;
             }
@@ -286,8 +288,9 @@ namespace YouVisio.Wpf.TimeTracker
             var recordsFromYesterday = col.FindOne(Query.EQ("day", DateTime.Now.AddDays(-1).ToYearMonthDay()));
             var arr = recordsFromYesterday?["segments"].AsBsonArray;
             if(arr == null) return;
-            const int showRecords = 5;
-            
+            const int showRecords = 20;
+
+            i = arr.Count;
             foreach (BsonDocument seg in 
                 arr
                 .Skip(Math.Max(arr.Count-showRecords,0))
@@ -298,7 +301,7 @@ namespace YouVisio.Wpf.TimeTracker
                 var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
                 if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
                 if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
-                ts.Count = ++i;
+                ts.Count = i--;
                 ts.Mark = "yesterday";
                 segments.Add(ts);
             }

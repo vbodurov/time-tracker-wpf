@@ -45,9 +45,9 @@
 
         <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0">
             <Label>ID</Label>
-            <TextBox Name="TaskId" Width="120"></TextBox>
+            <TextBox Name="TaskId" Width="120" Margin="1"></TextBox>
             <Label Margin="20 0 0 0">Comment:</Label>
-            <Button Name="ClearButton" Margin="105 0 0 0" Background="CadetBlue" Width="60" Click="ClearButton_OnClick">Clear</Button>
+            <Button Name="ClearButton" Margin="345 1 1 1" Background="DarkGray" Foreground="WhiteSmoke" Width="60" Click="ClearButton_OnClick">Clear</Button>
         </StackPanel>
 
         <TextBox Name="TaskComment" Grid.Column="1" Grid.Row="1" AcceptsTab="True" AcceptsReturn="True"></TextBox>
@@ -63,20 +63,20 @@
                   AutoGenerateColumns="False"
                   HorizontalGridLinesBrush="LightGray" VerticalGridLinesBrush="LightGray">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Number" Binding="{Binding Count}" />
-                <DataGridTextColumn Header="Start" Binding="{Binding Start}" />
-                <DataGridTextColumn Header="End" Binding="{Binding End}" />
-                <DataGridTextColumn Header="Duration" Binding="{Binding Span}" />
-                <DataGridTextColumn Header="When" Binding="{Binding Mark}" />
+                <DataGridTextColumn Header="Number" IsReadOnly="True" Binding="{Binding Count}" />
+                <DataGridTextColumn Header="Start" IsReadOnly="True" Binding="{Binding Start}" />
+                <DataGridTextColumn Header="End" IsReadOnly="True" Binding="{Binding End}" />
+                <DataGridTextColumn Header="Duration" IsReadOnly="True" Binding="{Binding Span}" />
+                <DataGridTextColumn Header="When" IsReadOnly="True" Binding="{Binding Mark}" />
                 <DataGridTemplateColumn>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Click="OnSetSegment" Background="DarkGray" Foreground="Azure" Padding="3">Set Current</Button>
+                            <Button Click="OnSetSegment" Background="DarkGray" Foreground="WhiteSmoke" Padding="3">Set Current</Button>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Task Id" Binding="{Binding Id}" />
-                <DataGridTextColumn Header="Comment" Binding="{Binding Comment}" />
+                <DataGridTextColumn Header="Task Id" IsReadOnly="False" Binding="{Binding Id}" />
+                <DataGridTextColumn Header="Comment" IsReadOnly="False" Binding="{Binding Comment}" />
             </DataGrid.Columns>
         </DataGrid>
     </Grid>
