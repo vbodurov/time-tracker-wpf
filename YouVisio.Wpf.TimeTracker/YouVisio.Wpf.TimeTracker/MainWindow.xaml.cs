@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Timers;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shell;
 using MongoDB.Bson;
@@ -47,6 +48,7 @@ namespace YouVisio.Wpf.TimeTracker
             var recordsFromToday = col.FindOne(Query.EQ("day", DateTime.Now.ToYearMonthDay()));
             if (recordsFromToday != null)
             {
+                
                 _linkedList.Clear();
 
                 var i = 0;
@@ -259,29 +261,33 @@ namespace YouVisio.Wpf.TimeTracker
         {
             var d = DateTime.Now;
             var day = d.Year.ToPadString(4) + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2) + " "+d.DayOfWeek;
-            Title = "Time Tricker @ YouVisio (" + day + ")";
+            Title = "Time Tracker @ YouVisio (" + day + ")";
         }
 
         private void SetTextViewFromLinkedList()
         {
             _prevSegment = new TimeSpan(0);
-            TxtLog.Text = "";
+            
+            var segments = new List<TimeSegment>();
+
             var node = _linkedList.Last;
             var i = _linkedList.Count;
             while (node != null)
             {
                 var segment = node.Value;
                 _prevSegment = _prevSegment.Add(segment.Span);
-                TxtLog.Text += (i--).ToString().PadLeft(3,' ')+".) "+segment+"\n";
+                segment.Mark = "today";
+                segments.Add(segment);
                 node = node.Previous;
             }
+            
 
             var col = GetMongoCollection("time_tracker");
             var recordsFromYesterday = col.FindOne(Query.EQ("day", DateTime.Now.AddDays(-1).ToYearMonthDay()));
             var arr = recordsFromYesterday?["segments"].AsBsonArray;
             if(arr == null) return;
             const int showRecords = 5;
-            var j = arr.Count;
+            
             foreach (BsonDocument seg in 
                 arr
                 .Skip(Math.Max(arr.Count-showRecords,0))
@@ -293,13 +299,21 @@ namespace YouVisio.Wpf.TimeTracker
                 if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
                 if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
                 ts.Count = ++i;
-                TxtLog.Text += "yesterday  ("+DateTime.Now.AddDays(-1).ToYearMonthDay()+"):" + (j--).ToString().PadLeft(3,' ')+".) "+ts + "\n";
+                ts.Mark = "yesterday";
+                segments.Add(ts);
             }
+            DataLog.ItemsSource = segments;
         }
-
         private void ClearButton_OnClick(object sender, RoutedEventArgs e)
         {
             TaskId.Text = TaskComment.Text = "";
+        }
+        private void OnSetSegment(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            var ts = button.DataContext as TimeSegment;
+            TaskId.Text = ts.Id;
+            TaskComment.Text = ts.Comment;
         }
     }
 
@@ -311,6 +325,7 @@ namespace YouVisio.Wpf.TimeTracker
         public TimeSpan Span => End - Start;
         public string Id { get; set; }
         public string Comment { get; set; }
+        public string Mark { get; set; }
 
         public override string ToString()
         {

@@ -1,7 +1,7 @@
 ﻿<Window x:Class="YouVisio.Wpf.TimeTracker.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="YouVisio - Time Tracker" Height="500" Width="780"
+        Title="YouVisio - Time Tracker" Height="600" Width="850"
         Icon="icon.ico">
     
     <Window.Resources>
@@ -54,6 +54,30 @@
         
         <Button Name="BtnPlay" Grid.Column="0" Grid.Row="1" Content="Play" FontSize="20" Background="DarkRed" Click="BtnPlay_OnClick" />
 
-        <TextBox Name="TxtLog" FontFamily="Segoe UI" FontSize="13" Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsReadOnly="True"></TextBox>
+        <DataGrid Name="DataLog" 
+                  FontFamily="Segoe UI" 
+                  FontSize="13" 
+                  Grid.Column="0" 
+                  Grid.Row="2" 
+                  Grid.ColumnSpan="2" 
+                  AutoGenerateColumns="False"
+                  HorizontalGridLinesBrush="LightGray" VerticalGridLinesBrush="LightGray">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Number" Binding="{Binding Count}" />
+                <DataGridTextColumn Header="Start" Binding="{Binding Start}" />
+                <DataGridTextColumn Header="End" Binding="{Binding End}" />
+                <DataGridTextColumn Header="Duration" Binding="{Binding Span}" />
+                <DataGridTextColumn Header="When" Binding="{Binding Mark}" />
+                <DataGridTemplateColumn>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Click="OnSetSegment" Background="DarkGray" Foreground="Azure" Padding="3">Set Current</Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Task Id" Binding="{Binding Id}" />
+                <DataGridTextColumn Header="Comment" Binding="{Binding Comment}" />
+            </DataGrid.Columns>
+        </DataGrid>
     </Grid>
 </Window>
