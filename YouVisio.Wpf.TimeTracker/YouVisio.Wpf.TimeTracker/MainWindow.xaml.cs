@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.IO.IsolatedStorage;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Timers;
 using System.Windows;
@@ -11,8 +13,12 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shell;
 using MongoDB.Bson;
+using MongoDB.Bson.IO;
 using MongoDB.Driver;
 using MongoDB.Driver.Builders;
+using Newtonsoft.Json;
+using YouVisio.Wpf.TimeTracker.Annotations;
+using JsonConvert = Newtonsoft.Json.JsonConvert;
 
 namespace YouVisio.Wpf.TimeTracker
 {
@@ -33,15 +39,26 @@ namespace YouVisio.Wpf.TimeTracker
 
             Closing += MainWindow_Closing;
 
+            LoadPreviousData();
+
             LoadPreviousLinkedList();
 
             EnsureTitle();
         }
 
-        private void LoadPreviousLinkedList()
+        void LoadPreviousData()
+        {
+            var (sprintId, comment) = GetLocalData();
+            TaskId.Text = sprintId;
+            TaskComment.Text = comment;
+        }
+
+        void LoadPreviousLinkedList()
         {
 
             var col = GetMongoCollection("time_tracker");
+
+
 
             _prevSegment = new TimeSpan(0);
 
@@ -92,35 +109,23 @@ namespace YouVisio.Wpf.TimeTracker
             var lastDayLastPeriodStartString = end.Start.ToYearMonthDay();
             var nowAsString = DateTime.Now.ToYearMonthDay();
             // if we have passed midnight since the beginning of the last time segment
-            if (string.CompareOrdinal(lastDayLastPeriodStartString,nowAsString) < 0)
+            if (string.CompareOrdinal(lastDayLastPeriodStartString, nowAsString) != 0)
             {
-                var lastDayLastPeriodEndString = end.End.ToYearMonthDay();
+                var endOfYesterday = new DateTime(end.Start.Year, end.Start.Month, end.Start.Day, 23, 59, 59);
+                end.End = endOfYesterday;
+                RecordData(endOfYesterday, _linkedList);
 
-                // if last period started previous day but ends the other day
-                if (lastDayLastPeriodStartString != lastDayLastPeriodEndString)
+                _linkedList.Clear();
+                _linkedList.AddFirst(new TimeSegment
                 {
-                    var endOfYesterday = new DateTime(end.Start.Year, end.Start.Month, end.Start.Day, 23, 59, 59);
-                    end.End = endOfYesterday;
-                    RecordData(endOfYesterday, _linkedList);
-
-                    _linkedList.Clear();
-                    _linkedList.AddFirst(new TimeSegment
-                    {
-                        Start = endOfYesterday.AddSeconds(1),
-                        End = DateTime.Now,
-                        Count = 1,
-                        Id = end.Id,
-                        Comment =
-                            (end.Comment + " (after splitting the time segment because it was crossing midnight)").Trim()
-                    });
-                    RecordData(DateTime.Now, _linkedList);
-                }
-                else
-                {
-                    // if last day period started and ended previous day
-                    RecordData(end.End, _linkedList);
-                    _linkedList.Clear();
-                }
+                    Start = endOfYesterday.AddSeconds(2),
+                    End = DateTime.Now,
+                    Count = 1,
+                    Id = end.Id,
+                    Comment =
+                        (end.Comment + " (after splitting the time segment because it was crossing midnight)").Trim()
+                });
+                RecordData(DateTime.Now, _linkedList);
                 
                 return true;
             }
@@ -159,7 +164,16 @@ namespace YouVisio.Wpf.TimeTracker
                 allTime = allTime.Add(segment.Span);
                 node = node.Next;
             }
-            if (allTime.TotalSeconds < 1) return;
+
+            if (allTime.TotalSeconds < 1)
+            {
+                if (CanConnectToMongo())
+                {
+                    var col = GetMongoCollection("time_tracker");
+                    col.Remove(Query.EQ("day", day));
+                }
+                return;
+            }
             doc["segments"] = timeParts;
             doc["duration"] = allTime.Hours + "h " + allTime.Minutes + "m " + allTime.Seconds+"s";
             doc["minutes"] = allTime.TotalMinutes.Round(2);
@@ -189,7 +203,7 @@ namespace YouVisio.Wpf.TimeTracker
                            UpdateFlags.Upsert);
                 return true;
             }
-            catch (MongoConnectionException)
+            catch (Exception)
             {
                 return false;
             }
@@ -215,17 +229,23 @@ namespace YouVisio.Wpf.TimeTracker
                     LblTime.Content = time.Hours + "h " + time.Minutes + "m " + time.Seconds + "s";
                 });
         }
-        private void BtnPlay_OnClick(object sender, RoutedEventArgs e)
+        void BtnPlay_OnClick(object sender, RoutedEventArgs e)
         {
             if (_timer.Enabled) Stop();
             else Play();
         }
 
-        private void Play()
+        void Play()
         {
+            if (string.IsNullOrWhiteSpace(TaskId.Text) || string.IsNullOrWhiteSpace(TaskComment.Text))
+            {
+                MessageBox.Show("Please enter sprint ID and Task Comment", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             LoadPreviousLinkedList();
             _timer.Start();
-            BtnPlay.Background = Brushes.Green;
+            BtnPlay.Background = Brushes.DarkGreen;
             BtnPlay.Content = "Stop";
             _linkedList.AddLast(new TimeSegment
             {
@@ -242,11 +262,14 @@ namespace YouVisio.Wpf.TimeTracker
         {
             try
             {
+
+
                 _timer.Stop();
                 BtnPlay.Background = Brushes.DarkRed;
                 BtnPlay.Content = "Play";
                 _linkedList.Last.Value.End = DateTime.Now;
-                
+
+                SaveLocalData(TaskId.Text, TaskComment.Text);
                 EnsureSaveAndIfNeededLastDayClearList();
                 SetTextViewFromLinkedList();
                 EnsureTitle();
@@ -258,14 +281,69 @@ namespace YouVisio.Wpf.TimeTracker
             }
         }
 
-        private void EnsureTitle()
+        const string fileName = "TimeTracker_SprintAndComment.txt";
+        void SaveLocalData(string sprintId, string comment)
+        {
+            try
+            {
+                IsolatedStorageFile isoStore = IsolatedStorageFile.GetStore(IsolatedStorageScope.Assembly | IsolatedStorageScope.Machine, null, null);
+                if (isoStore.FileExists(fileName))
+                {
+                    isoStore.DeleteFile(fileName);
+                }
+                using (IsolatedStorageFileStream isoStream = new IsolatedStorageFileStream(fileName, FileMode.CreateNew, isoStore))
+                {
+                    using (StreamWriter writer = new StreamWriter(isoStream))
+                    {
+                        writer.Write(JsonConvert.SerializeObject(new[] { sprintId, comment }));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
+            }
+        }
+        Version GetPublishedVersion()
+        {
+            return GetType().Assembly.GetName().Version;
+        }
+
+        (string sprintId, string comment) GetLocalData()
+        {
+            try
+            {
+                IsolatedStorageFile isoStore = IsolatedStorageFile.GetStore(IsolatedStorageScope.Assembly | IsolatedStorageScope.Machine, null, null);
+                if (!isoStore.FileExists(fileName))
+                {
+                    return ("", "");
+                }
+                using (IsolatedStorageFileStream isoStream = new IsolatedStorageFileStream(fileName, FileMode.Open, isoStore))
+                {
+                    using (StreamReader reader = new StreamReader(isoStream))
+                    {
+                        var data = reader.ReadToEnd();
+                        if(string.IsNullOrWhiteSpace(data)) return ("", "");
+                        var arr = JsonConvert.DeserializeObject<string[]>(data);
+                        return (arr[0], arr[1]);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
+                return ("", "");
+            }
+        }
+
+        void EnsureTitle()
         {
             var d = DateTime.Now;
             var day = d.Year.ToPadString(4) + "-" + d.Month.ToPadString(2) + "-" + d.Day.ToPadString(2) + " "+d.DayOfWeek;
-            Title = "Time Tracker @ YouVisio (" + day + ")";
+            Title = "Time Tracker @ YouVisio (" + day + ") version ( " + GetPublishedVersion().Revision+" )";
         }
 
-        private void SetTextViewFromLinkedList()
+        void SetTextViewFromLinkedList()
         {
             _prevSegment = new TimeSpan(0);
             
@@ -287,48 +365,128 @@ namespace YouVisio.Wpf.TimeTracker
             var col = GetMongoCollection("time_tracker");
             var recordsFromYesterday = col.FindOne(Query.EQ("day", DateTime.Now.AddDays(-1).ToYearMonthDay()));
             var arr = recordsFromYesterday?["segments"].AsBsonArray;
-            if(arr == null) return;
-            const int showRecords = 20;
-
-            i = arr.Count;
-            foreach (BsonDocument seg in 
-                arr
-                .Skip(Math.Max(arr.Count-showRecords,0))
-                .Take(showRecords)
-                .Reverse()
-                .OfType<BsonDocument>())
+            if (arr != null)
             {
-                var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
-                if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
-                if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
-                ts.Count = i--;
-                ts.Mark = "yesterday";
-                segments.Add(ts);
+                const int maxNumRecordsFromYesterday = 100;
+
+                i = arr.Count;
+                foreach (BsonDocument seg in
+                    arr
+                        .Skip(Math.Max(arr.Count - maxNumRecordsFromYesterday, 0))
+                        .Take(maxNumRecordsFromYesterday)
+                        .Reverse()
+                        .OfType<BsonDocument>())
+                {
+                    var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
+                    if (seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
+                    if (seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
+                    ts.Count = i--;
+                    ts.Mark = "yesterday";
+                    segments.Add(ts);
+                }
             }
+           
             DataLog.ItemsSource = segments;
         }
-        private void ClearButton_OnClick(object sender, RoutedEventArgs e)
+        void ClearButton_OnClick(object sender, RoutedEventArgs e)
         {
             TaskId.Text = TaskComment.Text = "";
         }
-        private void OnSetSegment(object sender, RoutedEventArgs e)
+        void OnSetSegment(object sender, RoutedEventArgs e)
         {
             var button = sender as Button;
             var ts = button.DataContext as TimeSegment;
             TaskId.Text = ts.Id;
             TaskComment.Text = ts.Comment;
         }
+        void OnDeleteSegment(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show("Are you sure you want to delete?", "Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+            if(result != MessageBoxResult.Yes) return;
+            var button = sender as Button;
+            var ts = button.DataContext as TimeSegment;
+            _linkedList.Remove(ts);
+            RecordData(DateTime.Now, _linkedList);
+            SetTextViewFromLinkedList();
+        }
+        void OnUpdateSegment(object sender, RoutedEventArgs e)
+        {
+            RecordData(DateTime.Now, _linkedList);
+            SetTextViewFromLinkedList();
+        }
     }
 
-    public class TimeSegment
+    public class TimeSegment : INotifyPropertyChanged
     {
-        public int Count { get; set; }
-        public DateTime Start { get; set; }
-        public DateTime End { get; set; }
-        public TimeSpan Span => End - Start;
-        public string Id { get; set; }
-        public string Comment { get; set; }
-        public string Mark { get; set; }
+        int _Count;
+        DateTime _Start,_End;
+        string _Id, _Comment, _Mark;
+
+        public int Count
+        {
+            get { return _Count; }
+            set
+            {
+                _Count = value;
+                OnPropertyChanged();
+            }
+        }
+        public DateTime Start
+        {
+            get { return _Start; }
+            set
+            {
+                _Start = value;
+                OnPropertyChanged();
+            }
+        }
+        public DateTime End
+        {
+            get { return _End; }
+            set
+            {
+                _End = value;
+                OnPropertyChanged();
+            }
+        }
+        public TimeSpan Span
+        {
+            get
+            {
+                var s = End - Start;
+                return new TimeSpan(s.Days, s.Hours, s.Minutes, s.Seconds);
+            }
+        }
+
+
+        public string Id
+        {
+            get { return _Id; }
+            set
+            {
+                _Id = value;
+                OnPropertyChanged();
+            }
+        }
+        public string Comment
+        {
+            get { return _Comment; }
+            set
+            {
+                _Comment = value;
+                OnPropertyChanged();
+            }
+        }
+        public string Mark
+        {
+            get { return _Mark; }
+            set
+            {
+                _Mark = value;
+                OnPropertyChanged();
+            }
+        }
 
         public override string ToString()
         {
@@ -349,6 +507,14 @@ namespace YouVisio.Wpf.TimeTracker
                   .Append(((Comment.Length > 50)?Comment.Substring(0,50)+"...":Comment).Replace("\n"," ").Replace("\r"," ").Replace("\t"," "));
             }
             return sb.ToString();
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        [NotifyPropertyChangedInvocator]
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }

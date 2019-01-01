@@ -1,7 +1,7 @@
 ﻿<Window x:Class="YouVisio.Wpf.TimeTracker.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="YouVisio - Time Tracker" Height="600" Width="850"
+        Title="YouVisio - Time Tracker" Height="600" Width="1300" Background="DimGray"
         Icon="icon.ico">
     
     <Window.Resources>
@@ -41,42 +41,65 @@
             <RowDefinition Height="*"></RowDefinition>
         </Grid.RowDefinitions>
         
-        <Label Name="LblTime" Grid.Column="0" Grid.Row="0" FontSize="15" Foreground="DarkGray" HorizontalContentAlignment="Center">0h 0m 0s</Label>
+        <Label Name="LblTime" Grid.Column="0" Grid.Row="0" FontSize="18" Foreground="#BDBDBD" HorizontalContentAlignment="Center">0h 0m 0s</Label>
 
         <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0">
-            <Label>ID</Label>
-            <TextBox Name="TaskId" Width="120" Margin="1"></TextBox>
-            <Label Margin="20 0 0 0">Comment:</Label>
-            <Button Name="ClearButton" Margin="345 1 1 1" Background="DarkGray" Foreground="WhiteSmoke" Width="60" Click="ClearButton_OnClick">Clear</Button>
+            <Label FontSize="16">Sprint ID</Label>
+            <TextBox Name="TaskId" Width="120" Margin="1" FontSize="18" Background="#333333" Foreground="#DDDDDD"></TextBox>
+            <Button Name="ClearButton" Margin="10 1 1 1" FontSize="16" Background="#222222" Foreground="WhiteSmoke" Width="60" Click="ClearButton_OnClick">Clear</Button>
+            <Label FontSize="16" Margin="10 0 0 0">Comment:</Label>
         </StackPanel>
 
-        <TextBox Name="TaskComment" Grid.Column="1" Grid.Row="1" AcceptsTab="True" AcceptsReturn="True"></TextBox>
+        <TextBox Name="TaskComment" Grid.Column="1" Grid.Row="1" AcceptsTab="True" AcceptsReturn="True" FontSize="18" Background="#333333" Foreground="#DDDDDD"></TextBox>
         
-        <Button Name="BtnPlay" Grid.Column="0" Grid.Row="1" Content="Play" FontSize="20" Background="DarkRed" Click="BtnPlay_OnClick" />
+        <Button Name="BtnPlay" Grid.Column="0" Grid.Row="1" Content="Play" FontSize="40" Background="DarkRed" Foreground="#DDDDAA" Click="BtnPlay_OnClick" />
 
         <DataGrid Name="DataLog" 
                   FontFamily="Segoe UI" 
-                  FontSize="13" 
+                  FontSize="18" 
                   Grid.Column="0" 
                   Grid.Row="2" 
                   Grid.ColumnSpan="2" 
-                  AutoGenerateColumns="False"
+                  Background="DimGray" RowBackground="DimGray"
+                  AutoGenerateColumns="False" CanUserAddRows="False"
                   HorizontalGridLinesBrush="LightGray" VerticalGridLinesBrush="LightGray">
+            <DataGrid.Resources>
+                <Style BasedOn="{StaticResource {x:Type DataGridColumnHeader}}" TargetType="{x:Type DataGridColumnHeader}">
+                    <Setter Property="Background" Value="#333333" />
+                    <Setter Property="Foreground" Value="#999999" />
+                    <Setter Property="Padding" Value="3"></Setter>
+                    <Setter Property="HorizontalAlignment" Value="Stretch"></Setter>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Number" IsReadOnly="True" Binding="{Binding Count}" />
-                <DataGridTextColumn Header="Start" IsReadOnly="True" Binding="{Binding Start}" />
-                <DataGridTextColumn Header="End" IsReadOnly="True" Binding="{Binding End}" />
-                <DataGridTextColumn Header="Duration" IsReadOnly="True" Binding="{Binding Span}" />
-                <DataGridTextColumn Header="When" IsReadOnly="True" Binding="{Binding Mark}" />
+                <DataGridTextColumn Header="  #  " IsReadOnly="True" Binding="{Binding Count}" />
+                <DataGridTextColumn Header=" Start " IsReadOnly="True" Binding="{Binding Start}" />
+                <DataGridTextColumn Header=" End " IsReadOnly="True" Binding="{Binding End}" />
+                <DataGridTextColumn Header=" Duration " IsReadOnly="True" Binding="{Binding Span}" />
+                <DataGridTextColumn Header=" When " IsReadOnly="True" Binding="{Binding Mark}" />
+                <DataGridTextColumn Header=" Sprint ID " IsReadOnly="False" Binding="{Binding Id, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <DataGridTextColumn Header=" Comment " IsReadOnly="False" Binding="{Binding Comment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <DataGridTemplateColumn>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Click="OnSetSegment" Background="DarkGray" Foreground="WhiteSmoke" Padding="3">Set Current</Button>
+                            <Button Click="OnSetSegment" Background="#333333" Foreground="WhiteSmoke" Padding="2" Margin="2">Set Current</Button>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Task Id" IsReadOnly="False" Binding="{Binding Id}" />
-                <DataGridTextColumn Header="Comment" IsReadOnly="False" Binding="{Binding Comment}" />
+                <DataGridTemplateColumn>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Click="OnUpdateSegment" Background="#DDDDDD" Foreground="DarkGreen" Padding="2" Margin="2">Update</Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Click="OnDeleteSegment" Background="#DDDDDD" Foreground="DarkRed" Padding="2" Margin="2">Delete</Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>
