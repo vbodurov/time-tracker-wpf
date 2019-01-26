@@ -39,30 +39,30 @@ namespace YouVisio.Wpf.TimeTracker
 
             Closing += MainWindow_Closing;
 
-            LoadPreviousData();
+            LoadPreviousLocalStorageData();
 
-            LoadPreviousLinkedList();
+            LoadPreviousDatabaseData();
 
             EnsureTitle();
         }
 
-        void LoadPreviousData()
+        void LoadPreviousLocalStorageData()
         {
             var (sprintId, comment) = GetLocalData();
             TaskId.Text = sprintId;
             TaskComment.Text = comment;
         }
 
-        void LoadPreviousLinkedList()
+        void LoadPreviousDatabaseData()
         {
 
             var col = GetMongoCollection("time_tracker");
 
-
+            var day = DateTime.Now;
 
             _prevSegment = new TimeSpan(0);
 
-            var recordsFromToday = col.FindOne(Query.EQ("day", DateTime.Now.ToYearMonthDay()));
+            var recordsFromToday = col.FindOne(Query.EQ("day", day.ToYearMonthDay()));
             if (recordsFromToday != null)
             {
                 
@@ -71,7 +71,7 @@ namespace YouVisio.Wpf.TimeTracker
                 var i = 0;
                 foreach(BsonDocument seg in recordsFromToday["segments"].AsBsonArray)
                 {
-                    var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
+                    var ts = GetTimeSegment(day, seg["start"].AsString, seg["end"].AsString);
                     if(seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
                     if(seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
                     _prevSegment += ts.Span;
@@ -80,7 +80,7 @@ namespace YouVisio.Wpf.TimeTracker
                 }
             }
 
-            SetTextViewFromLinkedList();
+            LoadPreviousDatabaseDataForYesterday();
 
             var time = _prevSegment;
             LblTime.Content = time.Hours + "h " + time.Minutes + "m " + time.Seconds + "s";
@@ -88,15 +88,14 @@ namespace YouVisio.Wpf.TimeTracker
             RecordData(DateTime.Now, _linkedList);
         }
 
-        private TimeSegment GetTimeSegment(string start, string end)
+        private TimeSegment GetTimeSegment(DateTime day, string start, string end)
         {
-            var d = DateTime.Now;
             var sa = start.Split(':').Select(Int32.Parse).ToArray();
             var ea = end.Split(':').Select(Int32.Parse).ToArray();
             return new TimeSegment
                        {
-                           Start = new DateTime(d.Year, d.Month, d.Day).AddHours(sa[0]).AddMinutes(sa[1]).AddSeconds(sa[2]),
-                           End = new DateTime(d.Year, d.Month, d.Day).AddHours(ea[0]).AddMinutes(ea[1]).AddSeconds(ea[2])
+                           Start = new DateTime(day.Year, day.Month, day.Day).AddHours(sa[0]).AddMinutes(sa[1]).AddSeconds(sa[2]),
+                           End = new DateTime(day.Year, day.Month, day.Day).AddHours(ea[0]).AddMinutes(ea[1]).AddSeconds(ea[2])
                        };
         }
 
@@ -244,7 +243,7 @@ namespace YouVisio.Wpf.TimeTracker
                 return;
             }
 
-            LoadPreviousLinkedList();
+            LoadPreviousDatabaseData();
             _timer.Start();
             BtnPlay.Background = Brushes.DarkGreen;
             BtnPlay.Content = "Stop";
@@ -272,7 +271,7 @@ namespace YouVisio.Wpf.TimeTracker
 
                 SaveLocalData(TaskId.Text, TaskComment.Text);
                 EnsureSaveAndIfNeededLastDayClearList();
-                SetTextViewFromLinkedList();
+                LoadPreviousDatabaseDataForYesterday();
                 EnsureTitle();
                 TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
             }
@@ -344,7 +343,7 @@ namespace YouVisio.Wpf.TimeTracker
             Title = "Time Tracker @ YouVisio (" + day + ") version ( " + GetPublishedVersion().Revision+" )";
         }
 
-        void SetTextViewFromLinkedList()
+        void LoadPreviousDatabaseDataForYesterday()
         {
             _prevSegment = new TimeSpan(0);
             
@@ -361,10 +360,10 @@ namespace YouVisio.Wpf.TimeTracker
                 segments.Add(segment);
                 node = node.Previous;
             }
-            
 
+            var day = DateTime.Now.AddDays(-1);
             var col = GetMongoCollection("time_tracker");
-            var recordsFromYesterday = col.FindOne(Query.EQ("day", DateTime.Now.AddDays(-1).ToYearMonthDay()));
+            var recordsFromYesterday = col.FindOne(Query.EQ("day", day.ToYearMonthDay()));
             var arr = recordsFromYesterday?["segments"].AsBsonArray;
             if (arr != null)
             {
@@ -378,7 +377,7 @@ namespace YouVisio.Wpf.TimeTracker
                         .Reverse()
                         .OfType<BsonDocument>())
                 {
-                    var ts = GetTimeSegment(seg["start"].AsString, seg["end"].AsString);
+                    var ts = GetTimeSegment(day, seg["start"].AsString, seg["end"].AsString);
                     if (seg.Contains("task_id")) ts.Id = seg["task_id"].AsString;
                     if (seg.Contains("task_comment")) ts.Comment = seg["task_comment"].AsString;
                     ts.Count = i--;
@@ -409,12 +408,12 @@ namespace YouVisio.Wpf.TimeTracker
             var ts = button.DataContext as TimeSegment;
             _linkedList.Remove(ts);
             RecordData(DateTime.Now, _linkedList);
-            SetTextViewFromLinkedList();
+            LoadPreviousDatabaseDataForYesterday();
         }
         void OnUpdateSegment(object sender, RoutedEventArgs e)
         {
             RecordData(DateTime.Now, _linkedList);
-            SetTextViewFromLinkedList();
+            LoadPreviousDatabaseDataForYesterday();
         }
     }
 
