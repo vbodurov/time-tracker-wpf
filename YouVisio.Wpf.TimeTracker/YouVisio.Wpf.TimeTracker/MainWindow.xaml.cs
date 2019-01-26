@@ -84,6 +84,8 @@ namespace YouVisio.Wpf.TimeTracker
 
             var time = _prevSegment;
             LblTime.Content = time.Hours + "h " + time.Minutes + "m " + time.Seconds + "s";
+
+            RecordData(DateTime.Now, _linkedList);
         }
 
         private TimeSegment GetTimeSegment(string start, string end)
@@ -122,8 +124,7 @@ namespace YouVisio.Wpf.TimeTracker
                     End = DateTime.Now,
                     Count = 1,
                     Id = end.Id,
-                    Comment =
-                        (end.Comment + " (after splitting the time segment because it was crossing midnight)").Trim()
+                    Comment = (end.Comment + " (across midnight)").Trim()
                 });
                 RecordData(DateTime.Now, _linkedList);
                 
@@ -487,27 +488,7 @@ namespace YouVisio.Wpf.TimeTracker
                 OnPropertyChanged();
             }
         }
-
-        public override string ToString()
-        {
-            var sb = new StringBuilder();
-            sb
-                .Append(Start.ToString("HH:mm:ss"))
-                .Append(" - ")
-                .Append(End.ToString("HH:mm:ss"))
-                .Append(" (")
-                .Append(Span.Hours).Append("h ")
-                .Append(Span.Minutes).Append("m ")
-                .Append(Span.Seconds).Append("s")
-                .Append(")");
-            if (!string.IsNullOrWhiteSpace(Id)) sb.Append("       #" + Id);
-            if (!string.IsNullOrWhiteSpace(Comment))
-            {
-                sb.Append("       ")
-                  .Append(((Comment.Length > 50)?Comment.Substring(0,50)+"...":Comment).Replace("\n"," ").Replace("\r"," ").Replace("\t"," "));
-            }
-            return sb.ToString();
-        }
+        
 
         public event PropertyChangedEventHandler PropertyChanged;
 

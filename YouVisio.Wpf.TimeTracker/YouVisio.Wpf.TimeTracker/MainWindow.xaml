@@ -73,8 +73,8 @@
             </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="  #  " IsReadOnly="True" Binding="{Binding Count}" />
-                <DataGridTextColumn Header=" Start " IsReadOnly="True" Binding="{Binding Start}" />
-                <DataGridTextColumn Header=" End " IsReadOnly="True" Binding="{Binding End}" />
+                <DataGridTextColumn Header=" Start " IsReadOnly="True" Binding="{Binding Start, StringFormat='dd MMM HH:mm:ss'}" />
+                <DataGridTextColumn Header=" End " IsReadOnly="True" Binding="{Binding End, StringFormat='dd MMM HH:mm:ss'}" />
                 <DataGridTextColumn Header=" Duration " IsReadOnly="True" Binding="{Binding Span}" />
                 <DataGridTextColumn Header=" When " IsReadOnly="True" Binding="{Binding Mark}" />
                 <DataGridTextColumn Header=" Sprint ID " IsReadOnly="False" Binding="{Binding Id, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
